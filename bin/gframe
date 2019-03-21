@@ -1,17 +1,19 @@
 #!/usr/bin/env node
-
 const fs = require('fs');
 const ora = require('ora');
 const chalk = require('chalk');
 const Promise = require('bluebird');
-const program = require('commander');
 const inquirer = require('inquirer');
+const program = require('commander');
+const pkg = require('../package.json');
 const download = Promise.promisify(require('download-git-repo'));
 
 const spinner = ora('正在下载模板...');
+
 program
-    .version('1.0.0')
+    .version(pkg.version, '-v,--version')
     .command('init <dirname>')
+    .description(pkg.description)
     .action(dirname => {
         if (fs.existsSync(dirname)) {
             return console.log(chalk.red(`dirname ${dirname} is exist`));
@@ -31,10 +33,12 @@ program
 
 program.parse(process.argv);
 
+// 如果没写参数,输出提示
 if (!process.argv.slice(2).length) {
     console.log(chalk.red('no argvs...'));
 }
 
+// 命令行交互配置
 function inquirerFn() {
     return inquirer.prompt([
         {
@@ -56,16 +60,20 @@ function inquirerFn() {
     ]);
 }
 
+/**
+ * 从github上clone已有的模版
+ * @param answers 命令行收集到的交互信息
+ * @param dirname 最终生成的项目名
+ */
 function cloneFn(answers, dirname) {
     const { frame, name, description } = answers;
-    let url = 'https://github.com:qinhangong/react-scaffold#master'; // 自己写的一个未完的react脚手架
+    // 从github上找了两个star比较多的脚手架模版,一个react,一个vue
+    let url = 'https://github.com:bodyno/react-starter-kit#master';
     if (frame === 'vue') {
-        url = 'https://github.com:Mrminfive/vue-multiple-page#master'; // git上找的一个vue脚手架
+        url = 'https://github.com:Mrminfive/vue-multiple-page#master';
     }
     spinner.start();
-    return download(url, dirname, {
-        clone: true
-    }).then(() => {
+    return download(url, dirname).then(() => {
         spinner.stop();
         const pkg = process.cwd() + `/${dirname}/package.json`;
         const content = JSON.parse(fs.readFileSync(pkg, 'utf8'));
