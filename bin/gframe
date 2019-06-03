@@ -1,85 +1,35 @@
 #!/usr/bin/env node
+
 const fs = require('fs');
-const ora = require('ora');
 const chalk = require('chalk');
-const Promise = require('bluebird');
-const inquirer = require('inquirer');
 const program = require('commander');
 const pkg = require('../package.json');
-const download = Promise.promisify(require('download-git-repo'));
+const { inquirerFn, downloadFn } = require('../lib/init');
 
-const spinner = ora('正在下载模板...');
+program.version(pkg.version, '-v,--version');
 
 program
-    .version(pkg.version, '-v,--version')
     .command('init <dirname>')
     .description(pkg.description)
     .action(dirname => {
         if (fs.existsSync(dirname)) {
             return console.log(chalk.red(`dirname ${dirname} is exist`));
         }
-        inquirerFn()
-            .then(answers => {
-                return cloneFn(answers, dirname);
-            })
-            .then(() => {
-                console.log(chalk.green('success'));
-            })
-            .catch(err => {
-                console.log(chalk.red('failed'));
-                console.log(err);
-            });
+        inquirerFn().then(answers => {
+            downloadFn(answers, dirname);
+        });
     });
+
+// 如果输入没有注册的命令,输出帮助提示
+program.arguments('<command>').action(cmd => {
+    program.outputHelp();
+    console.log(' ');
+    console.log(`error: unknown option '${cmd}'`);
+});
 
 program.parse(process.argv);
 
-// 如果没写参数,输出提示
+// 如果没写参数,输出帮助提示
 if (!process.argv.slice(2).length) {
-    console.log(chalk.red('no argvs...'));
-}
-
-// 命令行交互配置
-function inquirerFn() {
-    return inquirer.prompt([
-        {
-            type: 'list',
-            name: 'frame',
-            message: '请选择开发用的脚手架:',
-            choices: ['react', 'vue']
-        },
-        {
-            type: 'input',
-            name: 'name',
-            message: '请输入项目名称:'
-        },
-        {
-            type: 'input',
-            name: 'description',
-            message: '请输入项目简介:'
-        }
-    ]);
-}
-
-/**
- * 从github上clone已有的模版
- * @param answers 命令行收集到的交互信息
- * @param dirname 最终生成的项目名
- */
-function cloneFn(answers, dirname) {
-    const { frame, name = dirname, description = dirname } = answers;
-    // 从github上找了两个star比较多的脚手架模版,一个react,一个vue
-    let url = 'https://github.com:bodyno/react-starter-kit#master';
-    if (frame === 'vue') {
-        url = 'https://github.com:Mrminfive/vue-multiple-page#master';
-    }
-    spinner.start();
-    return download(url, dirname, { clone: false }).then(() => {
-        spinner.stop();
-        const pkg = process.cwd() + `/${dirname}/package.json`;
-        const content = JSON.parse(fs.readFileSync(pkg, 'utf8'));
-        content.name = name;
-        content.description = description;
-        const result = JSON.stringify(content);
-        fs.writeFileSync(pkg, result);
-    });
+    program.outputHelp();
 }
